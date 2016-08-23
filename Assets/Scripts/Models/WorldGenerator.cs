@@ -40,6 +40,12 @@ public class WorldGenerator
         int xOffset = Random.Range(0, 10000);
         int yOffset = Random.Range(0, 10000);
 
+        int sumOfAllWeightedChances = 0;
+        foreach(Inventory resource in resources)
+        {
+            sumOfAllWeightedChances += resource.stackSize;
+        }
+
         for (int x = 0; x < startAreaWidth; x++)
         {
             for (int y = 0; y < startAreaHeight; y++)
@@ -63,7 +69,7 @@ public class WorldGenerator
 
                 if (startAreaFurnitures[x, y] != null && startAreaFurnitures[x, y] != string.Empty)
                 {
-                    world.PlaceFurniture(startAreaFurnitures[x, y], tile, false);
+                    world.PlaceFurniture(startAreaFurnitures[x, y], tile, true);
                 }
             }
         }
@@ -82,17 +88,17 @@ public class WorldGenerator
                     {
                         if (resources.Length > 0)
                         {
-                            int currentchance = 0;
-                            int randomchance = Random.Range(0, 100);
+                            int currentweight = 0;
+                            int randomweight = Random.Range(0, sumOfAllWeightedChances);
 
                             for (int i = 0; i < resources.Length; i++)
                             {
                                 Inventory inv = resources[i];
 
-                                int chance = inv.stackSize; // In stacksize the chance was cached
-                                currentchance += chance;
+                                int weight = inv.stackSize; // In stacksize the weight was cached
+                                currentweight += weight;
 
-                                if (randomchance <= currentchance)
+                                if (randomweight <= currentweight)
                                 {
                                     int stackSize = Random.Range(resourceMin[i], resourceMax[i]);
 
@@ -117,7 +123,7 @@ public class WorldGenerator
         int boundX = (world.Width / 2) - startAreaCenterX;
         int boundY = (world.Height / 2) + startAreaCenterY;
 
-        if (x >= boundX && x < boundX + startAreaWidth && y >= boundY && y < boundY - startAreaHeight)
+        if (x >= boundX && x < (boundX + startAreaWidth) && y >= (boundY - startAreaHeight) && y < boundY)
         {
             return true;
         }
@@ -172,7 +178,7 @@ public class WorldGenerator
                                         res.Add(new Inventory(
                                                 res_reader.GetAttribute("objectType"),
                                                 int.Parse(res_reader.GetAttribute("maxStack")),
-                                                (int)(float.Parse(res_reader.GetAttribute("chance")) * 100)));
+                                                Mathf.CeilToInt(float.Parse(res_reader.GetAttribute("weightedChance")))));
 
                                         resMin.Add(int.Parse(res_reader.GetAttribute("min")));
                                         resMax.Add(int.Parse(res_reader.GetAttribute("max")));
