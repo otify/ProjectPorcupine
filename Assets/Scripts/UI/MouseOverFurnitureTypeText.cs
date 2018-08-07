@@ -6,58 +6,26 @@
 // file LICENSE, which is part of this source code package, for details.
 // ====================================================
 #endregion
-using UnityEngine;
-using System.Collections;
-using UnityEngine.UI;
+
 using ProjectPorcupine.Localization;
+using UnityEngine;
+using UnityEngine.UI;
 
-public class MouseOverFurnitureTypeText : MonoBehaviour
+/// <summary>
+/// MouseOverFurnitureTypeText implements the abstract class MouseOver.
+/// It returns info strings that represent the tiles furniture type.
+/// </summary>
+public class MouseOverFurnitureTypeText : MouseOver
 {
-
-    // Every frame, this script checks to see which tile
-    // is under the mouse and then updates the GetComponent<Text>.text
-    // parameter of the object it is attached to.
-
-    Text myText;
-    MouseController mouseController;
-
-    // Use this for initialization
-    void Start()
+    protected override string GetMouseOverString(Tile tile)
     {
-        myText = GetComponent<Text>();
-
-        if (myText == null)
+        if (tile != null && tile.Furniture != null)
         {
-            Debug.LogError("MouseOverTileTypeText: No 'Text' UI component on this object.");
-            this.enabled = false;
-            return;
-        }
-
-        mouseController = WorldController.Instance.mouseController;
-        if (mouseController == null)
-        {
-            Debug.LogError("How do we not have an instance of mouse controller?");
-            return;
-        }
-
-    }
-	
-    // Update is called once per frame
-    void Update()
-    {
-        Tile t = mouseController.GetMouseOverTile();
-
-        string s = "NULL";
-
-        if (t != null && t.Furniture != null)
-        {
-            s = t.Furniture.Name;
-            myText.text = LocalizationTable.GetLocalization("furniture") + ": " + s;
+            return LocalizationTable.GetLocalization("furniture", LocalizationTable.GetLocalization(tile.Furniture.LocalizationCode));
         }
         else
         {
-            myText.text = "";
+            return string.Empty;
         }
-
     }
 }

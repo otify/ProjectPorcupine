@@ -6,21 +6,15 @@
 // file LICENSE, which is part of this source code package, for details.
 // ====================================================
 #endregion
+
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections;
-using System.Xml.Serialization;
-using System.IO;
-
-
 
 public class DialogBoxLoadGame : DialogBoxLoadSaveGame
 {
-
-    public GameObject dialog;
-    GameObject go;
     public bool pressedDelete;
-    Component fileItem;
+    private Component fileItem;
 
     public override void ShowDialog()
     {
@@ -32,14 +26,6 @@ public class DialogBoxLoadGame : DialogBoxLoadSaveGame
         }
     }
 
-    void Update()
-    {
-        if (pressedDelete)
-        {
-            SetButtonLocation(fileItem);
-        }
-    }
-
     public void SetFileItem(Component item)
     {
         fileItem = item;
@@ -48,13 +34,21 @@ public class DialogBoxLoadGame : DialogBoxLoadSaveGame
     public void SetButtonLocation(Component item)
     {
         GameObject go = GameObject.FindGameObjectWithTag("DeleteButton");
-        go.transform.position = new Vector3(item.transform.position.x + 110f, item.transform.position.y - 8f);
+        go.transform.position = new Vector3(item.transform.position.x + 140f, item.transform.position.y - 8f);
     }
 
     public void OkayWasClicked()
     {
-
         string fileName = gameObject.GetComponentInChildren<InputField>().text;
+
+        if (fileName == string.Empty)
+        {
+            DialogBoxManager dbm = GameObject.Find("Dialog Boxes").GetComponent<DialogBoxManager>();
+            dbm.dialogBoxPromptOrInfo.SetAsInfo("message_file_needed_for_load");
+            dbm.dialogBoxPromptOrInfo.ShowDialog();
+            return;
+        }
+
         // TODO: Is the filename valid?  I.E. we may want to ban path-delimiters (/ \ or :) and
         // maybe periods?      ../../some_important_file
 
@@ -64,8 +58,7 @@ public class DialogBoxLoadGame : DialogBoxLoadSaveGame
         //    C:\Users\Quill18\ApplicationData\MyCompanyName\MyGameName\Saves\SaveGameName123.sav
 
         // Application.persistentDataPath == C:\Users\<username>\ApplicationData\MyCompanyName\MyGameName\
-
-        string saveDirectoryPath = WorldController.Instance.FileSaveBasePath();
+        string saveDirectoryPath = GameController.Instance.FileSaveBasePath();
 
         EnsureDirectoryExists(saveDirectoryPath);
 
@@ -73,13 +66,13 @@ public class DialogBoxLoadGame : DialogBoxLoadSaveGame
 
         // At this point, filePath should look very much like
         //     C:\Users\Quill18\ApplicationData\MyCompanyName\MyGameName\Saves\SaveGameName123.sav
-
         if (File.Exists(filePath) == false)
         {
-            // TODO: Do file overwrite dialog box.
+            //// TODO: Do file overwrite dialog box.
 
-            Debug.LogError("File doesn't exist.  What?");
-            CloseDialog();
+            DialogBoxManager dbm = GameObject.Find("Dialog Boxes").GetComponent<DialogBoxManager>();
+            dbm.dialogBoxPromptOrInfo.SetAsInfo("message_file_doesn't_exist");
+            dbm.dialogBoxPromptOrInfo.ShowDialog();
             return;
         }
 
@@ -92,7 +85,7 @@ public class DialogBoxLoadGame : DialogBoxLoadSaveGame
     {
         GameObject go = GameObject.FindGameObjectWithTag("DeleteButton");
         go.GetComponent<Image>().color = new Color(255, 255, 255, 0);
-        pressedDelete=false;
+        pressedDelete = false;
         base.CloseDialog();
     }
 
@@ -100,7 +93,7 @@ public class DialogBoxLoadGame : DialogBoxLoadSaveGame
     {
         string fileName = gameObject.GetComponentInChildren<InputField>().text;
 
-        string saveDirectoryPath = WorldController.Instance.FileSaveBasePath();
+        string saveDirectoryPath = GameController.Instance.FileSaveBasePath();
 
         EnsureDirectoryExists(saveDirectoryPath);
 
@@ -108,27 +101,34 @@ public class DialogBoxLoadGame : DialogBoxLoadSaveGame
 
         if (File.Exists(filePath) == false)
         {
-
-            Debug.LogError("File doesn't exist.  What?");
-            CloseDialog();
+            DialogBoxManager dbm = GameObject.Find("Dialog Boxes").GetComponent<DialogBoxManager>();
+            dbm.dialogBoxPromptOrInfo.SetAsInfo("message_file_doesn't_exist");
             return;
         }
 
-        CloseSureDialog();
         File.Delete(filePath);
+
+        gameObject.GetComponentInChildren<InputField>().text = string.Empty;
+
         CloseDialog();
         ShowDialog();
     }
 
-    public void CloseSureDialog()
-    {
-        dialog.SetActive(false);
-    }
-
     public void DeleteWasClicked()
     {
+        string fileName = gameObject.GetComponentInChildren<InputField>().text;
 
-        dialog.SetActive(true);
+        DialogBoxManager dbm = GameObject.Find("Dialog Boxes").GetComponent<DialogBoxManager>();
+        dbm.dialogBoxPromptOrInfo.Closed = () =>
+        {
+            if (dbm.dialogBoxPromptOrInfo.Result == DialogBoxResult.Yes)
+            {
+                DeleteFile();
+            }
+        };
+        dbm.dialogBoxPromptOrInfo.SetPrompt("prompt_delete_file", fileName);
+        dbm.dialogBoxPromptOrInfo.SetButtons(DialogBoxResult.Yes, DialogBoxResult.No);
+        dbm.dialogBoxPromptOrInfo.ShowDialog();
     }
 
     public void LoadWorld(string filePath)
@@ -136,10 +136,21 @@ public class DialogBoxLoadGame : DialogBoxLoadSaveGame
         // This function gets called when the user confirms a filename
         // from the load dialog box.
 
-        // Get the file name from the save file dialog box
+        // Get the file name from the save file dialog box.
+        UnityDebugger.Debugger.Log("DialogBoxLoadGame", "LoadWorld button was clicked.");
 
-        Debug.Log("LoadWorld button was clicked.");
+        DialogBoxManager dbm = GameObject.Find("Dialog Boxes").GetComponent<DialogBoxManager>();
+        dbm.dialogBoxPromptOrInfo.SetPrompt("message_loading_game");
+        dbm.dialogBoxPromptOrInfo.ShowDialog();
 
-        WorldController.Instance.LoadWorld(filePath);
+        SceneController.Instance.LoadWorld(filePath);
+    }
+
+    private void Update()
+    {
+        if (pressedDelete)
+        {
+            SetButtonLocation(fileItem);
+        }
     }
 }

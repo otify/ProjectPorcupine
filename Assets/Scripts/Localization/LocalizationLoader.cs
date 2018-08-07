@@ -19,6 +19,60 @@ namespace ProjectPorcupine.Localization
     [AddComponentMenu("Localization/Localization Loader")]
     public class LocalizationLoader : MonoBehaviour
     {
+        /// <summary>
+        /// Scans Application.streamingAssetsPath/Localization folder in search for .lang files and load's them
+        /// to the LocalizationTable.
+        /// </summary>
+        public void UpdateLocalizationTable()
+        {
+            // Load application localization files
+            LoadLocalizationInDirectory(Application.streamingAssetsPath);
+
+            // Load mods localization files
+            foreach (DirectoryInfo mod in ModsManager.GetModsFiles())
+            {
+                LoadLocalizationInDirectory(mod.FullName);
+            }
+
+            // Attempt to get setting of currently selected language. (Will default to English).
+            string lang = Settings.GetSettingWithOverwrite("localization", "en_US");
+
+            // Setup LocalizationTable with either loaded or defaulted language
+            LocalizationTable.currentLanguage = lang;
+
+            // Tell the LocalizationTable that it has been initialized.
+            LocalizationTable.LoadingLanguagesFinished();
+        }
+
+        /// <summary>
+        /// Loads the localization in directory.
+        /// </summary>
+        /// <param name="path">Arbitrary path to load Localization files from.</param>
+        private void LoadLocalizationInDirectory(string path)
+        {
+            // Get the file path.
+            string filePath = Path.Combine(path, "Localization");
+
+            if (Directory.Exists(filePath) == false)
+            {
+                return;
+            }
+
+            // Load the localization config file first
+            LocalizationTable.LoadConfigFile(Path.Combine(filePath, "config.xml"));
+
+            // Loop through all files.
+            // TODO: Think over the extension ".lang", might change that in the future.
+            foreach (string file in Directory.GetFiles(filePath, "*.lang"))
+            {
+                // The file extension is .lang, load it.
+                LocalizationTable.LoadLocalizationFile(file);
+
+                // Just write a little debug info into the console.
+                UnityDebugger.Debugger.Log("LocalizationLoader", "Loaded localization at path: " + file);
+            }
+        }
+
         // Initialize the localization files before Unity loads the scene entirely.
         // Used to ensure that the TextLocalizer scripts won't throw errors.
         private void Awake()
@@ -31,34 +85,22 @@ namespace ProjectPorcupine.Localization
             }
 
             // Update localization from the internet.
-            StartCoroutine(LocalizationDownloader.CheckIfCurrentLocalizationIsUpToDate());
+            StartCoroutine(LocalizationDownloader.CheckIfCurrentLocalizationIsUpToDate(delegate { UpdateLocalizationTable(); }));
 
-            // Get the file path.
-            string filePath = Path.Combine(Application.streamingAssetsPath, "Localization");
+            // Even though it's ran again in start, UpdateLocalizationTable still needs ran here to actually have the chose language
+            // show on start, I don't really know why.
+            UpdateLocalizationTable();
+        }
 
-            // Loop through all files.
-            foreach (string file in Directory.GetFiles(filePath))
+        private void Start()
+        {
+            if (LocalizationTable.initialized)
             {
-                // Check if the file is really a .lang file, and nothing else.
-                // TODO: Think over the extension ".lang", might change that in the future.
-                if (file.EndsWith(".lang"))
-                {
-                    // The file extension is .lang, load it.
-                    LocalizationTable.LoadLocalizationFile(file);
-
-                    // Just write a little debug info into the console.
-                    Debug.Log("Loaded localization at path\n" + file);
-                }
+                return;
             }
 
-            // Attempt to get setting of currently selected language. (Will default to English).
-            string lang = Settings.getSetting("localization", "en_US");
-
-            // Setup LocalizationTable with either loaded or defaulted language
-            LocalizationTable.currentLanguage = lang;
-
-            // Tell the LocalizationTable that it has been initialized.
-            LocalizationTable.initialized = true;
+            // UpdateLocalizationTable needs to run after everything with TextLocalizer components have set their callbacks, so we run in start.
+            UpdateLocalizationTable();
         }
     }
 }
